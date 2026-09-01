@@ -1,13 +1,9 @@
 const DATA_URL = "https://raw.githubusercontent.com/MynosIII/TelemetryOne/main/public/data/datasets/v7_6.json";
-const colors = ["#e10600", "#111111", "#2563eb", "#c7a33c", "#7c3aed", "#059669", "#db2777", "#64748b"];
 const app = document.querySelector("#app");
 app.innerHTML = `<div class="loading"><strong>F1 HISTÓRICA</strong><p>Cargando pilotos de todas las épocas…</p></div>`;
 
 function historyChart(data) {
-  const selected = data.leaders.slice(0, 8).map((id) => data.drivers[id]).filter(Boolean);
   const allDrivers = Object.values(data.drivers).filter((driver) => driver.points?.length);
-  const selectedIds = new Set(selected.map((driver) => driver.id));
-  const backgroundDrivers = allDrivers.filter((driver) => !selectedIds.has(driver.id));
   const width = 1120, height = 430, margin = { top: 24, right: 24, bottom: 44, left: 54 };
   const x = (year) => margin.left + ((year - 1950) / 75) * (width - margin.left - margin.right);
   const y = (rating) => height - margin.bottom - ((rating - 1300) / 750) * (height - margin.top - margin.bottom);
@@ -15,9 +11,8 @@ function historyChart(data) {
   return `<div class="chart-wrap"><svg class="chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Evolución histórica del rendimiento de los pilotos mejor clasificados">
     ${ratings.map((value) => `<line x1="${margin.left}" y1="${y(value)}" x2="${width-margin.right}" y2="${y(value)}" class="grid"/><text x="${margin.left-10}" y="${y(value)+4}" text-anchor="end">${value}</text>`).join("")}
     ${years.map((year) => `<text x="${x(year)}" y="${height-14}" text-anchor="middle">${year}</text>`).join("")}
-    ${backgroundDrivers.map((driver) => `<polyline points="${driver.points.map((p) => `${x(p[2])},${y(p[1])}`).join(" ")}" fill="none" stroke="#9ca3af" stroke-opacity="0.2" stroke-width="0.8" vector-effect="non-scaling-stroke"/>`).join("")}
-    ${selected.map((driver,index) => `<polyline points="${driver.points.map((p) => `${x(p[2])},${y(p[1])}`).join(" ")}" fill="none" stroke="${colors[index]}" stroke-width="2.5" vector-effect="non-scaling-stroke"/>`).join("")}
-  </svg></div><div class="legend">${selected.map((driver,index) => `<span><i style="background:${colors[index]}"></i>${driver.name}</span>`).join("")}<span><i style="background:#9ca3af"></i>Otros ${backgroundDrivers.length} pilotos</span></div>`;
+    ${allDrivers.map((driver,index) => `<polyline class="driver-line" data-name="${driver.name}" data-period="${driver.debut}–${driver.lastSeason}" data-peak="${Number(driver.peakRating || driver.peak || 0).toFixed(1)}" points="${driver.points.map((p) => `${x(p[2])},${y(p[1])}`).join(" ")}" fill="none" stroke="hsl(${(index * 137.508) % 360} 68% 43%)" vector-effect="non-scaling-stroke"/>`).join("")}
+  </svg><div id="chart-tooltip" class="chart-tooltip" role="status"></div></div><p class="chart-help">Pasá el cursor sobre una línea para identificar al piloto.</p>`;
 }
 
 const driverRows = (drivers) => drivers.map((driver) => `<tr><td>${driver.rank ?? "—"}</td><td><strong>${driver.name}</strong></td><td>${driver.debut}</td><td>${driver.lastSeason}</td><td>${driver.events ?? 0}</td><td>${Number(driver.peak || 0).toFixed(1)}</td></tr>`).join("");
@@ -35,6 +30,19 @@ function render(data) {
   document.querySelector("#driver-search").addEventListener("input", (event) => {
     const query = event.target.value.trim().toLocaleLowerCase("es");
     document.querySelector("#driver-body").innerHTML = driverRows(drivers.filter((driver) => driver.name.toLocaleLowerCase("es").includes(query)));
+  });
+  const tooltip = document.querySelector("#chart-tooltip");
+  document.querySelectorAll(".driver-line").forEach((line) => {
+    line.addEventListener("pointerenter", () => {
+      tooltip.innerHTML = `<strong>${line.dataset.name}</strong><span>${line.dataset.period} · Pico ELO ${line.dataset.peak}</span>`;
+      tooltip.classList.add("visible");
+    });
+    line.addEventListener("pointermove", (event) => {
+      const bounds = event.currentTarget.closest(".chart-wrap").getBoundingClientRect();
+      tooltip.style.left = `${event.clientX - bounds.left + 14}px`;
+      tooltip.style.top = `${event.clientY - bounds.top + 14}px`;
+    });
+    line.addEventListener("pointerleave", () => tooltip.classList.remove("visible"));
   });
 }
 
