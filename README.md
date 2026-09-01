@@ -11,9 +11,12 @@ Página simple para explorar la evolución histórica de pilotos y marcas de Fó
 ## Uso
 
 ```bash
-python -m http.server 8000
+npm install
+npm run dev
 ```
 
-Luego abrir `http://localhost:8000`.
+Luego abrir la dirección local que muestra Vite.
+
+La versión pública se publica automáticamente con GitHub Pages desde la rama `main`.
 
 Los gráficos cubren todas las épocas disponibles en TelemetryOne, desde 1950 hasta 2025.
