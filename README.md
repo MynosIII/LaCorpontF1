@@ -1,6 +1,6 @@
-# Telemetry One — trabajo universitario
+# F1 — Historia y rendimiento
 
-Página única y simple para visualizar la historia de los constructores, las clasificaciones de pilotos y autos, y un Fan Index de Fórmula 1.
+Página simple para visualizar la evolución histórica y la clasificación completa de pilotos y autos de Fórmula 1.
 
 ## Uso
 
@@ -10,4 +10,4 @@ python -m http.server 8000
 
 Luego abrir `http://localhost:8000`.
 
-El proyecto utiliza exclusivamente `data/dataset-v7.6.js` y no incluye selector de datasets.
+Incluye pilotos y autos de todas las épocas, desde 1950 hasta 2025.
