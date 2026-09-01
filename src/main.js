@@ -250,6 +250,7 @@ function initDriverExplorer(data, drivers, driverMap, leaderIds) {
     renderSelection();
     if (!chosen.length) {
       Plotly.purge(chart);
+      delete chart.dataset.eventsBound;
       chart.innerHTML = `<div class="plot-empty"><strong>Sin pilotos seleccionados</strong><p>Usá el buscador para preparar una comparación.</p></div>`;
       return;
     }
@@ -260,7 +261,18 @@ function initDriverExplorer(data, drivers, driverMap, leaderIds) {
       const start = Math.min(...indexes), end = Math.max(...indexes), padding = Math.max(8, Math.round((end - start) * 0.035));
       layout.xaxis.range = [Math.max(1, start - padding), Math.min(data.meta.events, end + padding)];
     }
-    Plotly.react(chart, chosen.map((driver) => driverTrace(driver, mode === "all")), layout, plotConfig());
+    Plotly.react(chart, chosen.map((driver) => driverTrace(driver, mode === "all")), layout, plotConfig()).then(() => {
+      if (chart.dataset.eventsBound === "true") return;
+      chart.on("plotly_hover", (event) => {
+        const id = event.points?.[0]?.customdata?.[0];
+        if (id && driverMap.has(id)) updateDriverSpotlight(driverMap.get(id));
+      });
+      chart.on("plotly_click", (event) => {
+        const id = event.points?.[0]?.customdata?.[0];
+        if (id && driverMap.has(id)) updateDriverSpotlight(driverMap.get(id));
+      });
+      chart.dataset.eventsBound = "true";
+    });
   }
 
   function setMode(nextMode) {
@@ -290,14 +302,6 @@ function initDriverExplorer(data, drivers, driverMap, leaderIds) {
     document.querySelectorAll("[data-axis]").forEach((item) => item.classList.toggle("active", item === button));
     renderChart();
   }));
-  chart.on("plotly_hover", (event) => {
-    const id = event.points?.[0]?.customdata?.[0];
-    if (id && driverMap.has(id)) updateDriverSpotlight(driverMap.get(id));
-  });
-  chart.on("plotly_click", (event) => {
-    const id = event.points?.[0]?.customdata?.[0];
-    if (id && driverMap.has(id)) updateDriverSpotlight(driverMap.get(id));
-  });
   renderList(); renderChart(); updateDriverSpotlight(driverMap.get(leaderIds[0]) ?? drivers[0]);
 }
 
@@ -368,7 +372,7 @@ function initBrandExplorer(data, brands) {
   function renderChart() {
     const chosen = chosenBrands(); renderSelection();
     if (!chosen.length) {
-      Plotly.purge(chart); chart.innerHTML = `<div class="plot-empty"><strong>Sin marcas seleccionadas</strong><p>Usá el buscador para preparar una comparación.</p></div>`; return;
+      Plotly.purge(chart); delete chart.dataset.eventsBound; chart.innerHTML = `<div class="plot-empty"><strong>Sin marcas seleccionadas</strong><p>Usá el buscador para preparar una comparación.</p></div>`; return;
     }
     const layout = baseLayout(data, "Probabilidad esperada de victoria", true);
     if (mode !== "all") {
@@ -376,7 +380,12 @@ function initBrandExplorer(data, brands) {
       const start = Math.min(...indexes), end = Math.max(...indexes), padding = Math.max(8, Math.round((end - start) * 0.035));
       layout.xaxis.range = [Math.max(1, start - padding), Math.min(data.meta.events, end + padding)];
     }
-    Plotly.react(chart, chosen.map((brand) => brandTrace(brand, mode === "all")), layout, plotConfig());
+    Plotly.react(chart, chosen.map((brand) => brandTrace(brand, mode === "all")), layout, plotConfig()).then(() => {
+      if (chart.dataset.eventsBound === "true") return;
+      chart.on("plotly_hover", (event) => { const id = event.points?.[0]?.customdata?.[0]; if (brandMap.has(id)) updateSpotlight(brandMap.get(id)); });
+      chart.on("plotly_click", (event) => { const id = event.points?.[0]?.customdata?.[0]; if (brandMap.has(id)) updateSpotlight(brandMap.get(id)); });
+      chart.dataset.eventsBound = "true";
+    });
   }
   function setMode(nextMode) {
     mode = nextMode;
@@ -398,8 +407,6 @@ function initBrandExplorer(data, brands) {
   });
   search.addEventListener("input", renderList);
   document.querySelectorAll("[data-brand-mode]").forEach((button) => button.addEventListener("click", () => setMode(button.dataset.brandMode)));
-  chart.on("plotly_hover", (event) => { const id = event.points?.[0]?.customdata?.[0]; if (brandMap.has(id)) updateSpotlight(brandMap.get(id)); });
-  chart.on("plotly_click", (event) => { const id = event.points?.[0]?.customdata?.[0]; if (brandMap.has(id)) updateSpotlight(brandMap.get(id)); });
   renderList(); renderChart(); updateSpotlight(brands[0]);
 }
 
