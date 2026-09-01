@@ -1,6 +1,6 @@
 import Plotly from "plotly.js-dist-min";
 
-const DATA_URL = "https://raw.githubusercontent.com/MynosIII/TelemetryOne/main/public/data/datasets/v7_6.json";
+const DATA_URL = "./data/v7_6.json";
 const LIVE_SURVEY_URL = "https://docs.google.com/spreadsheets/d/1w6jGPveRXEOXN-UFxvS9dqaWgV2aKTvGqJUD8vVYe6I/gviz/tq?tqx=out:csv&gid=1937071380";
 const app = document.querySelector("#app");
 
@@ -527,6 +527,7 @@ async function updateLiveChart() {
 Promise.all([
   fetch(DATA_URL).then((response) => { if (!response.ok) throw new Error(); return response.json(); }),
   Promise.resolve(Plotly)
-]).then(([data]) => render(data)).catch(() => {
+]).then(([data]) => render(data)).catch((error) => {
+  console.error("[F1 Histórica] No se pudo iniciar la visualización.", error);
   app.innerHTML = `<div class="loading error"><strong>No se pudieron cargar los datos.</strong><p>Revisá la conexión e intentá nuevamente.</p></div>`;
 });

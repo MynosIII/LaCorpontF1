@@ -8,6 +8,8 @@ Página simple para explorar la evolución histórica de pilotos y marcas de Fó
 - Gráfico interactivo de autos agrupados por marca, conectando sus distintos modelos a través del tiempo.
 - Encuesta en vivo sobre el mejor piloto de la historia, con cruces por variables demográficas y de afinidad con la F1.
 
+El build incluye tanto Plotly como el conjunto histórico de TelemetryOne dentro del artefacto publicado, evitando dependencias bloqueables en tiempo de carga.
+
 ## Uso
 
 ```bash
