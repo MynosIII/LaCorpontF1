@@ -102,6 +102,8 @@ section { padding: 54px 0; border-bottom: 1px solid #b9b9b5; }
 .spotlight dl div { min-width: 0; padding: 9px; background: #1d1d1d; }
 .spotlight dt { color: #999; font-size: 8px; letter-spacing: .05em; text-transform: uppercase; }
 .spotlight dd { margin: 5px 0 0; font-size: 12px; font-weight: 800; }
+.spotlight-profile { grid-column: 1 / -1; min-height: 34px; border: 1px solid #555; background: #282828; color: #fff; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
+.spotlight-profile:hover, .spotlight-profile:focus-visible { border-color: #fff; background: #333; }
 .brand-spotlight { grid-template-columns: 58px minmax(0, 1fr); }
 .brand-mark { width: 58px; height: 58px; display: grid; place-items: center; border: 1px solid #ffffff33; border-left: 5px solid var(--brand-color); font-size: 21px; font-weight: 900; }
 .brand-spotlight dl { grid-template-columns: repeat(2, 1fr); }
@@ -152,6 +154,49 @@ section { padding: 54px 0; border-bottom: 1px solid #b9b9b5; }
 .fan-row b { text-align: right; }
 .bar { height: 8px; background: #ddd; }
 .bar i { display: block; height: 100%; background: var(--red); }
+.driver-dialog {
+  width: min(760px, calc(100% - 28px));
+  max-height: min(780px, calc(100vh - 28px));
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #484943;
+  border-radius: 20px;
+  background: #151613;
+  color: #f4f3ed;
+  box-shadow: 0 30px 100px rgba(0, 0, 0, .72);
+}
+.driver-dialog::backdrop { background: rgba(4, 5, 4, .78); backdrop-filter: blur(8px); }
+.dialog-scroll { max-height: min(780px, calc(100vh - 28px)); overflow-y: auto; }
+.dialog-close {
+  position: sticky;
+  z-index: 3;
+  top: 14px;
+  float: right;
+  width: 38px;
+  height: 38px;
+  margin: 14px 14px -52px 0;
+  border: 1px solid #484943;
+  border-radius: 50%;
+  background: rgba(15, 16, 14, .88);
+  color: #f4f3ed;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+.profile-head { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(220px, .75fr); gap: 26px; padding: 34px 34px 26px; border-bottom: 1px solid #33352e; }
+.profile-head h2 { margin: 0 0 7px; color: #f4f3ed; font-size: clamp(2rem, 6vw, 3.8rem); letter-spacing: -.055em; line-height: .95; }
+.profile-subtitle { margin: 0; color: #aaa99f; }
+.profile-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; overflow: hidden; border: 1px solid #33352e; border-radius: 12px; background: #33352e; }
+.profile-stat { padding: 11px 12px; background: #1b1c18; }
+.profile-stat span, .profile-stat strong { display: block; }
+.profile-stat span { color: #818079; font-size: .65rem; text-transform: uppercase; }
+.profile-stat strong { margin-top: 2px; color: #f4f3ed; font-size: 1rem; }
+.wiki-panel { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 24px; padding: 28px 34px 34px; }
+.wiki-image { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 13px; background: #272822; }
+.wiki-image[hidden] { display: none; }
+.profile-source { margin: 0 0 12px; color: var(--red) !important; font-size: .7rem !important; font-weight: 800; letter-spacing: .1em; }
+.wiki-copy p { color: #bcbbb5; font-size: .9rem; line-height: 1.65; }
+.wiki-link { color: #d9ff43; font-size: .8rem; font-weight: 800; }
+.wiki-loading { color: #aaa99f; }
 .loading { min-height: 100vh; display: grid; place-content: center; text-align: center; }
 .loading strong { font-size: 28px; }
 .loading p { color: var(--muted); }
@@ -191,5 +236,7 @@ footer p { margin: 0; }
   .correlation-head p { text-align: left; }
   .correlation-row { grid-template-columns: 1fr; gap: 7px; }
   .fan-row { grid-template-columns: 24px 130px 1fr 44px; gap: 8px; }
+  .profile-head, .wiki-panel { grid-template-columns: 1fr; padding-inline: 20px; }
+  .wiki-image { max-width: 180px; }
   footer { flex-direction: column; gap: 10px; }
 }

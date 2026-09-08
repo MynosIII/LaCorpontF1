@@ -9,6 +9,7 @@ app.innerHTML = `<div class="loading"><strong>F1 HISTÓRICA</strong><p>Cargando 
 const number = new Intl.NumberFormat("es-AR");
 const percentage = new Intl.NumberFormat("es-AR", { style: "percent", maximumFractionDigits: 1 });
 const imageCache = new Map();
+let activeProfileId = null;
 
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
@@ -164,8 +165,30 @@ function render(data) {
     ${sectionHeading("04", "fan-title", "Fan Index", "Preferencias históricas ponderadas")}
     <div class="fan-list">${[["Ayrton Senna",28.04],["Michael Schumacher",20.55],["Juan Manuel Fangio",15.39],["Jim Clark",9.15],["Lewis Hamilton",8.88],["Fernando Alonso",4.44],["Gilles Villeneuve",2.86],["Max Verstappen",2.09]].map((item,index) => `<div class="fan-row"><span>${index+1}</span><strong>${item[0]}</strong><div class="bar"><i style="width:${item[1]/28.04*100}%"></i></div><b>${item[1]}%</b></div>`).join("")}</div>
   </section>
+  <dialog class="driver-dialog" id="driver-dialog" aria-labelledby="driver-dialog-title">
+    <div class="dialog-scroll">
+      <button class="dialog-close" id="dialog-close" type="button" aria-label="Cerrar perfil del piloto">×</button>
+      <div class="profile-head">
+        <div>
+          <p class="eyebrow">PERFIL DEL PILOTO</p>
+          <h2 id="driver-dialog-title">Piloto</h2>
+          <p class="profile-subtitle" id="driver-dialog-subtitle"></p>
+        </div>
+        <div class="profile-stats" id="driver-profile-stats"></div>
+      </div>
+      <div class="wiki-panel">
+        <img class="wiki-image" id="wiki-image" alt="" hidden>
+        <div class="wiki-copy">
+          <p class="profile-source">DESDE WIKIPEDIA</p>
+          <p class="wiki-loading" id="wiki-summary">Cargando biografía…</p>
+          <a class="wiki-link" id="wiki-link" href="./drivers/">Ver perfil completo ↗</a>
+        </div>
+      </div>
+    </div>
+  </dialog>
   <footer><span>F1 HISTÓRICA</span><p>Comparación interactiva de pilotos, marcas y opinión</p></footer>`;
 
+  initDriverDialog();
   initDriverExplorer(data, drivers, driverMap, leaderIds);
   initBrandExplorer(data, brands);
   updateLiveChart();
@@ -224,6 +247,7 @@ function initDriverExplorer(data, drivers, driverMap, leaderIds) {
   const search = document.querySelector("#driver-search");
   const chips = document.querySelector("#driver-chips");
   const label = document.querySelector("#driver-selection-label");
+  const spotlight = document.querySelector("#driver-spotlight");
   const selected = new Set(leaderIds.slice(0, 3));
   let mode = "top", axisMode = "number";
 
@@ -296,6 +320,11 @@ function initDriverExplorer(data, drivers, driverMap, leaderIds) {
     selected.delete(button.dataset.removeDriver); renderList(); renderChart();
   });
   search.addEventListener("input", renderList);
+  spotlight.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-driver-profile]");
+    if (!button) return;
+    openDriverProfile(driverMap.get(button.dataset.driverProfile), data.meta.model);
+  });
   document.querySelectorAll("[data-driver-mode]").forEach((button) => button.addEventListener("click", () => setMode(button.dataset.driverMode)));
   document.querySelectorAll("[data-axis]").forEach((button) => button.addEventListener("click", () => {
     axisMode = button.dataset.axis;
@@ -326,11 +355,100 @@ async function updateDriverSpotlight(driver) {
   const spotlight = document.querySelector("#driver-spotlight");
   spotlight.dataset.driverId = driver.id;
   const initials = driver.name.split(/\s+/).map((part) => part[0]).slice(-2).join("");
-  spotlight.innerHTML = `<div class="portrait"><span>${escapeHtml(initials)}</span><img alt="" hidden></div><div><p class="spotlight-kicker">PILOTO EN FOCO</p><h3>${escapeHtml(driver.name)}</h3><p>${driver.debut}–${driver.lastSeason} · ${number.format(driver.races)} largadas</p></div><dl><div><dt>Ranking</dt><dd>${driver.rank ? `#${driver.rank}` : "—"}</dd></div><div><dt>Pico ELO</dt><dd>${Number(driver.peakRating || 0).toFixed(1)}</dd></div><div><dt>ELO carrera</dt><dd>${Number(driver.careerRating || 0).toFixed(1)}</dd></div></dl>`;
+  spotlight.innerHTML = `<div class="portrait"><span>${escapeHtml(initials)}</span><img alt="" hidden></div><div><p class="spotlight-kicker">PILOTO EN FOCO</p><h3>${escapeHtml(driver.name)}</h3><p>${driver.debut}–${driver.lastSeason} · ${number.format(driver.races)} largadas</p></div><dl><div><dt>Ranking</dt><dd>${driver.rank ? `#${driver.rank}` : "—"}</dd></div><div><dt>Pico ELO</dt><dd>${Number(driver.peakRating || 0).toFixed(1)}</dd></div><div><dt>ELO carrera</dt><dd>${Number(driver.careerRating || 0).toFixed(1)}</dd></div></dl><button class="spotlight-profile" type="button" data-driver-profile="${escapeHtml(driver.id)}">Ver estadísticas completas ↗</button>`;
   const image = await fetchDriverImage(driver);
   if (!image || spotlight.dataset.driverId !== driver.id) return;
   const element = spotlight.querySelector("img");
   element.src = image; element.alt = `${driver.name}, imagen de Wikipedia`; element.hidden = false;
+}
+
+function profileStat(label, value) {
+  return `<div class="profile-stat"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
+}
+
+function displayNumber(value, digits = 1) {
+  return value === null || value === undefined
+    ? "—"
+    : Number(value).toLocaleString("es-AR", { maximumFractionDigits: digits });
+}
+
+async function loadWikipediaProfile(driver) {
+  const profileId = driver.id;
+  const wikiImage = document.querySelector("#wiki-image");
+  const wikiSummary = document.querySelector("#wiki-summary");
+  wikiImage.hidden = true;
+  wikiImage.removeAttribute("src");
+  wikiSummary.className = "wiki-loading";
+  wikiSummary.textContent = "Cargando biografía…";
+
+  const searchTerm = `${driver.name} Formula One driver`;
+  const parameters = new URLSearchParams({
+    action: "query",
+    generator: "search",
+    gsrsearch: searchTerm,
+    gsrnamespace: "0",
+    gsrlimit: "1",
+    prop: "extracts|pageimages|info",
+    exintro: "1",
+    explaintext: "1",
+    exsentences: "4",
+    piprop: "thumbnail",
+    pithumbsize: "720",
+    inprop: "url",
+    redirects: "1",
+    format: "json",
+    formatversion: "2",
+    origin: "*"
+  });
+
+  try {
+    const response = await fetch(`https://en.wikipedia.org/w/api.php?${parameters}`);
+    if (!response.ok) throw new Error(`Wikipedia returned ${response.status}`);
+    const page = (await response.json())?.query?.pages?.[0];
+    if (!page || activeProfileId !== profileId) return;
+    wikiSummary.className = "";
+    wikiSummary.textContent = page.extract || "Wikipedia no ofrece una introducción para este piloto.";
+    if (page.thumbnail?.source) {
+      wikiImage.src = page.thumbnail.source;
+      wikiImage.alt = `${driver.name}, imagen de Wikipedia`;
+      wikiImage.hidden = false;
+    }
+  } catch {
+    if (activeProfileId !== profileId) return;
+    wikiSummary.className = "";
+    wikiSummary.textContent = "La biografía de Wikipedia no está disponible en este momento.";
+  }
+}
+
+function openDriverProfile(driver, model) {
+  if (!driver) return;
+  const dialog = document.querySelector("#driver-dialog");
+  activeProfileId = driver.id;
+  document.querySelector("#wiki-link").href = `./drivers/${encodeURIComponent(driver.id)}/`;
+  document.querySelector("#driver-dialog-title").textContent = driver.name;
+  document.querySelector("#driver-dialog-subtitle").textContent = `${driver.debut}–${driver.lastSeason} · ${number.format(driver.races)} largadas registradas · ${model}`;
+  document.querySelector("#driver-profile-stats").innerHTML = [
+    profileStat("Ranking histórico", driver.rank ? `#${driver.rank}` : "—"),
+    profileStat("Victorias", displayNumber(driver.wins, 0)),
+    profileStat("ELO actual/final", displayNumber(driver.currentRating)),
+    profileStat("ELO de carrera", displayNumber(driver.careerRating)),
+    profileStat("Prime sostenido", displayNumber(driver.sustainedPrime)),
+    profileStat("Pico ELO", displayNumber(driver.peakRating)),
+    profileStat("Victorias esperadas", displayNumber(driver.expectedWins, 2)),
+    profileStat("Victorias vs. esperadas", driver.winsAboveExpected == null ? "—" : `${driver.winsAboveExpected > 0 ? "+" : ""}${displayNumber(driver.winsAboveExpected, 2)}`),
+    profileStat("Residual de rendimiento", driver.performanceAboveExpected == null ? "—" : `${driver.performanceAboveExpected > 0 ? "+" : ""}${displayNumber(driver.performanceAboveExpected, 2)}`),
+    profileStat("Carreras elegibles", displayNumber(driver.eligibleRaces, 0))
+  ].join("");
+  if (!dialog.open) dialog.showModal();
+  loadWikipediaProfile(driver);
+}
+
+function initDriverDialog() {
+  const dialog = document.querySelector("#driver-dialog");
+  document.querySelector("#dialog-close").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
 }
 
 function brandTrace(brand, overview) {
