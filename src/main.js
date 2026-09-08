@@ -2,6 +2,8 @@ import Plotly from "plotly.js-dist-min";
 
 const DATA_URL = "./data/v7_6.json";
 const LIVE_SURVEY_URL = "https://docs.google.com/spreadsheets/d/1w6jGPveRXEOXN-UFxvS9dqaWgV2aKTvGqJUD8vVYe6I/gviz/tq?tqx=out:csv&gid=1937071380";
+const DRIVER_IMAGES_URL = "https://raw.githubusercontent.com/MynosIII/F1-Telemetry-Games/main/shared/driver_images.json";
+const DRIVER_IMAGE_REPOSITORY_ROOT = "https://raw.githubusercontent.com/MynosIII/F1-Telemetry-Games/main/";
 const app = document.querySelector("#app");
 
 app.innerHTML = `<div class="loading"><strong>F1 HISTÓRICA</strong><p>Cargando 76 temporadas de datos…</p></div>`;
@@ -9,6 +11,7 @@ app.innerHTML = `<div class="loading"><strong>F1 HISTÓRICA</strong><p>Cargando 
 const number = new Intl.NumberFormat("es-AR");
 const percentage = new Intl.NumberFormat("es-AR", { style: "percent", maximumFractionDigits: 1 });
 const imageCache = new Map();
+let driverImagesPromise = null;
 let activeProfileId = null;
 
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({
@@ -179,7 +182,7 @@ function render(data) {
       <div class="wiki-panel">
         <img class="wiki-image" id="wiki-image" alt="" hidden>
         <div class="wiki-copy">
-          <p class="profile-source">DESDE WIKIPEDIA</p>
+          <p class="profile-source">BIOGRAFÍA DESDE WIKIPEDIA</p>
           <p class="wiki-loading" id="wiki-summary">Cargando biografía…</p>
           <a class="wiki-link" id="wiki-link" href="./drivers/">Ver perfil completo ↗</a>
         </div>
@@ -339,14 +342,34 @@ function initDriverExplorer(data, drivers, driverMap, leaderIds) {
   renderList(); renderChart(); updateDriverSpotlight(driverMap.get(leaderIds[0]) ?? drivers[0]);
 }
 
+function resolveDriverImageUrl(value) {
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  const repositoryPath = String(value).replaceAll("\\", "/").replace(/^\.?\//, "");
+  return new URL(repositoryPath, DRIVER_IMAGE_REPOSITORY_ROOT).href;
+}
+
+async function loadDriverImages() {
+  if (!driverImagesPromise) {
+    driverImagesPromise = fetch(DRIVER_IMAGES_URL)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Driver images returned ${response.status}`);
+        return response.json();
+      })
+      .then((images) => new Map(Object.entries(images).map(([name, url]) => [searchKey(name), resolveDriverImageUrl(url)])))
+      .catch((error) => {
+        driverImagesPromise = null;
+        throw error;
+      });
+  }
+  return driverImagesPromise;
+}
+
 async function fetchDriverImage(driver) {
   if (imageCache.has(driver.id)) return imageCache.get(driver.id);
-  const query = `${driver.name} piloto de Fórmula 1`;
-  const parameters = new URLSearchParams({ action: "query", generator: "search", gsrsearch: query, gsrnamespace: "0", gsrlimit: "1", prop: "pageimages", piprop: "thumbnail", pithumbsize: "420", redirects: "1", format: "json", formatversion: "2", origin: "*" });
   try {
-    const response = await fetch(`https://es.wikipedia.org/w/api.php?${parameters}`);
-    if (!response.ok) throw new Error();
-    const image = (await response.json())?.query?.pages?.[0]?.thumbnail?.source ?? null;
+    const images = await loadDriverImages();
+    const image = images.get(searchKey(driver.name)) ?? null;
     imageCache.set(driver.id, image);
     return image;
   } catch {
@@ -364,7 +387,7 @@ async function updateDriverSpotlight(driver) {
   const image = await fetchDriverImage(driver);
   if (!image || spotlight.dataset.driverId !== driver.id) return;
   const element = spotlight.querySelector("img");
-  element.src = image; element.alt = `${driver.name}, imagen de Wikipedia`; element.hidden = false;
+  element.src = image; element.alt = `${driver.name}, imagen desde F1 Telemetry Games`; element.hidden = false;
 }
 
 function profileStat(label, value) {
@@ -386,6 +409,13 @@ async function loadWikipediaProfile(driver) {
   wikiSummary.className = "wiki-loading";
   wikiSummary.textContent = "Cargando biografía…";
 
+  fetchDriverImage(driver).then((image) => {
+    if (!image || activeProfileId !== profileId) return;
+    wikiImage.src = image;
+    wikiImage.alt = `${driver.name}, imagen desde F1 Telemetry Games`;
+    wikiImage.hidden = false;
+  });
+
   const searchTerm = `${driver.name} Formula One driver`;
   const parameters = new URLSearchParams({
     action: "query",
@@ -393,12 +423,10 @@ async function loadWikipediaProfile(driver) {
     gsrsearch: searchTerm,
     gsrnamespace: "0",
     gsrlimit: "1",
-    prop: "extracts|pageimages|info",
+    prop: "extracts|info",
     exintro: "1",
     explaintext: "1",
     exsentences: "4",
-    piprop: "thumbnail",
-    pithumbsize: "720",
     inprop: "url",
     redirects: "1",
     format: "json",
@@ -413,11 +441,6 @@ async function loadWikipediaProfile(driver) {
     if (!page || activeProfileId !== profileId) return;
     wikiSummary.className = "";
     wikiSummary.textContent = page.extract || "Wikipedia no ofrece una introducción para este piloto.";
-    if (page.thumbnail?.source) {
-      wikiImage.src = page.thumbnail.source;
-      wikiImage.alt = `${driver.name}, imagen de Wikipedia`;
-      wikiImage.hidden = false;
-    }
   } catch {
     if (activeProfileId !== profileId) return;
     wikiSummary.className = "";
