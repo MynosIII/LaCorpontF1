@@ -124,7 +124,7 @@ function render(data) {
       <div class="explorer-grid">
         <aside class="entity-panel">
           <label class="entity-search">Buscar piloto<input id="driver-search" type="search" placeholder="Nombre del piloto" autocomplete="off"></label>
-          <div class="entity-list" id="driver-list" role="listbox" aria-label="Pilotos de Fórmula 1" aria-multiselectable="true"></div>
+          <div class="entity-list" id="driver-list" role="list" aria-label="Pilotos de Fórmula 1"></div>
           <article class="spotlight" id="driver-spotlight" aria-live="polite"></article>
         </aside>
         <div class="plot-column"><div id="driver-chart" class="plot" role="img" aria-label="Gráfico interactivo del ELO histórico de pilotos"></div><p class="chart-help">Pasá por una línea para identificar al piloto y ver la carrera, el auto y el cambio de ELO. Usá la rueda para acercar y arrastrá para moverte.</p></div>
@@ -260,7 +260,7 @@ function initDriverExplorer(data, drivers, driverMap, leaderIds) {
   function renderList() {
     const query = searchKey(search.value.trim());
     const matches = query ? drivers.filter((driver) => searchKey(driver.name).includes(query)) : drivers;
-    list.innerHTML = matches.map((driver) => `<button class="entity-row${selected.has(driver.id) ? " selected" : ""}" type="button" role="option" aria-selected="${selected.has(driver.id)}" data-driver-id="${escapeHtml(driver.id)}" style="--entity-color:${colorFor(driver.id)}"><i></i><span><strong>${escapeHtml(driver.name)}</strong><small>${driver.debut}–${driver.lastSeason} · ${number.format(driver.races)} largadas</small></span><b>${selected.has(driver.id) ? "✓" : ""}</b></button>`).join("") || `<p class="empty-list">No hay coincidencias.</p>`;
+    list.innerHTML = matches.map((driver) => `<div class="entity-row driver-entity-row${selected.has(driver.id) ? " selected" : ""}" role="listitem" style="--entity-color:${colorFor(driver.id)}"><button class="entity-select" type="button" data-driver-id="${escapeHtml(driver.id)}" aria-pressed="${selected.has(driver.id)}" aria-label="${selected.has(driver.id) ? "Quitar" : "Agregar"} a ${escapeHtml(driver.name)} de la comparación"><i></i><span><strong>${escapeHtml(driver.name)}</strong><small>${driver.debut}–${driver.lastSeason} · ${number.format(driver.races)} largadas</small></span><b>${selected.has(driver.id) ? "✓" : ""}</b></button><button class="entity-more" type="button" data-driver-profile="${escapeHtml(driver.id)}" aria-label="Ver información de ${escapeHtml(driver.name)}" title="Ver información">+</button></div>`).join("") || `<p class="empty-list">No hay coincidencias.</p>`;
   }
 
   function renderSelection() {
@@ -306,6 +306,11 @@ function initDriverExplorer(data, drivers, driverMap, leaderIds) {
   }
 
   list.addEventListener("click", (event) => {
+    const profileButton = event.target.closest("[data-driver-profile]");
+    if (profileButton) {
+      openDriverProfile(driverMap.get(profileButton.dataset.driverProfile), data.meta.model);
+      return;
+    }
     const button = event.target.closest("[data-driver-id]");
     if (!button) return;
     const id = button.dataset.driverId;
