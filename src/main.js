@@ -135,6 +135,7 @@ function render(data) {
         <code>score = media de cuotas por fuente → media por plataforma → peso igual entre plataformas</code>
         <p>Antes del cálculo se anonimizan autores y se eliminan duplicados, conflictos y menciones ambiguas. El porcentaje es un índice balanceado de esa muestra de conversaciones, no una encuesta representativa de todos los fans.</p>
         <a class="method-link" href="https://github.com/MynosIII/LaCorpontF1/blob/main/docs/OPINION_POLL_ES.md" target="_blank" rel="noreferrer">Leer metodología del scraper ↗</a>
+        <a class="method-link" href="https://github.com/MynosIII/TelemetryOne/blob/main/public/data/exports/fan-index-sources.csv" target="_blank" rel="noreferrer">Ver fuentes consultadas ↗</a>
       </article>
     </div>
     <p class="method-separation"><strong>No mezclar:</strong> el Fan Index usa el scraper y su score balanceado. La encuesta “¿Quién es el mejor piloto?” de esta misma página viene de Google Sheets y muestra conteos directos de respuestas, sin aplicar ese score.</p>
