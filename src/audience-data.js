@@ -3,8 +3,7 @@ export const surveyMeta = {
   authors: "Formula 1 + Motorsport Network",
   respondents: "100K+",
   countries: 186,
-  fieldNote: "Encuesta opt-in a fans autodefinidos y altamente involucrados; no representa un censo de toda la audiencia de F1.",
-  selectedPages: [10, 13, 22, 23, 24, 26, 30, 31, 32, 33, 34, 35, 36, 37, 39, 51, 54, 63, 64, 65, 66]
+  fieldNote: "Encuesta opt-in a fans autodefinidos y altamente involucrados; no representa un censo de toda la audiencia de F1."
 };
 
 export const tenureAge = {
@@ -35,7 +34,7 @@ export const emotionalInvestment = {
     { label: "Poco involucrados", values: [5, 3, 4, 6, 10, 8] },
     { label: "Nada involucrados", values: [1, 1, 1, 1, 3, 2] }
   ],
-  caveat: "La última banda de la diapositiva 22 figura como ‘65+’, aunque la pregunta y el resto del eje corresponden a antigüedad. Se interpreta aquí como la banda de mayor antigüedad (10+ años)."
+  caveat: "La última banda del gráfico original figura como ‘65+’, aunque la pregunta y el resto del eje corresponden a antigüedad. Se interpreta aquí como la banda de mayor antigüedad (10+ años)."
 };
 
 export const motivators = {
