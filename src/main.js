@@ -107,7 +107,7 @@ function render(data) {
 
   app.innerHTML = `<header>
     <div><p class="eyebrow">FÓRMULA 1 · ${data.meta.firstSeason}–${data.meta.lastSeason}</p><h1>Historia y rendimiento</h1><p class="intro">Dos lecturas del mismo deporte: la evolución de los pilotos y la continuidad técnica de cada marca, carrera por carrera.</p></div>
-    <p class="count"><strong>${number.format(drivers.length)}</strong> pilotos<br><strong>${number.format(brands.length)}</strong> marcas</p>
+    <p class="count"><strong>${number.format(drivers.length)}</strong> pilotos<br><strong>${number.format(brands.length)}</strong> marcas<br><a class="audience-link" href="./audiencia.html">Explorar audiencia 2025 →</a></p>
   </header>
 
   <section aria-labelledby="drivers-chart-title">

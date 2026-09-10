@@ -1,9 +1,18 @@
 import { defineConfig } from "vite";
+import { resolve } from "node:path";
 
 const DATA_SOURCE = "https://raw.githubusercontent.com/MynosIII/TelemetryOne/main/public/data/datasets/v7_6.json";
 
 export default defineConfig({
   base: "./",
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(import.meta.dirname, "index.html"),
+        audience: resolve(import.meta.dirname, "audiencia.html")
+      }
+    }
+  },
   plugins: [{
     name: "bundle-telemetry-dataset",
     async generateBundle() {
