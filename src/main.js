@@ -110,6 +110,36 @@ function render(data) {
     <p class="count"><strong>${number.format(drivers.length)}</strong> pilotos<br><strong>${number.format(brands.length)}</strong> marcas<br><a class="audience-link" href="./audiencia.html">Explorar audiencia 2025 →</a></p>
   </header>
 
+  <section class="method-section" aria-labelledby="method-title">
+    ${sectionHeading("00 · FUENTES Y MÉTODO", "method-title", "De dónde sale cada número", "Datos deportivos, rating y opinión miden cosas distintas")}
+    <div class="method-grid">
+      <article class="method-card source-card">
+        <p class="method-label">BASE HISTÓRICA · 1950–2025</p>
+        <h3>Jolpica + F1DB</h3>
+        <p>La cronología inicial de carreras y resultados viene de <a href="https://github.com/jolpica/jolpica-f1" target="_blank" rel="noreferrer">Jolpica F1</a>, la continuidad comunitaria de la API Ergast. Esa base se cruza con <a href="https://github.com/f1db/f1db" target="_blank" rel="noreferrer">F1DB</a> para qualifying, identidad de pilotos y constructores, chasis y trazados.</p>
+        <p>Historical XW procesa esa unión y TelemetryOne publica aquí el dataset <strong>${escapeHtml(data.meta.model)}</strong>: ${number.format(data.meta.observations)} registros de ${number.format(data.meta.events)} Grandes Premios.</p>
+        <a class="method-link" href="https://github.com/MynosIII/TelemetryOne" target="_blank" rel="noreferrer">Ver dataset y código ↗</a>
+      </article>
+      <article class="method-card formula-card">
+        <p class="method-label">RATING DE PILOTOS</p>
+        <h3>Cómo se calcula el ELO</h3>
+        <p>Cada piloto se compara con todos los rivales de la carrera. La expectativa surge de la diferencia de fuerza previa, ajustada por auto, circuito, qualifying y contexto:</p>
+        <code>esperadoᵢ = promedioⱼ logistic((fuerzaᵢ − fuerzaⱼ) / 260)</code>
+        <code>Δ ELO = K de temporada × (rendimiento observado − esperado)</code>
+        <p>El K base de carrera es 24 y se ajusta por la cantidad de fechas para que temporadas cortas y largas tengan un presupuesto comparable. Los cambios se limitan y centran para sumar cero por evento; fallas mecánicas no se cargan al piloto. Es un análisis retrospectivo, no una estadística oficial.</p>
+      </article>
+      <article class="method-card scraper-card">
+        <p class="method-label">FAN INDEX · SCRAPER</p>
+        <h3>De comentarios públicos a score</h3>
+        <p>El snapshot del 29 de agosto de 2026 toma comentarios de YouTube, Reddit y foros públicos. De 16.364 comentarios únicos quedaron 1.632 elecciones explícitas; 33 conversaciones con cinco votos válidos o más entraron al índice.</p>
+        <code>score = media de cuotas por fuente → media por plataforma → peso igual entre plataformas</code>
+        <p>Antes del cálculo se anonimizan autores y se eliminan duplicados, conflictos y menciones ambiguas. El porcentaje es un índice balanceado de esa muestra de conversaciones, no una encuesta representativa de todos los fans.</p>
+        <a class="method-link" href="https://github.com/MynosIII/TelemetryOne/blob/main/docs/OPINION_POLL.md" target="_blank" rel="noreferrer">Leer metodología del scraper ↗</a>
+      </article>
+    </div>
+    <p class="method-separation"><strong>No mezclar:</strong> el Fan Index usa el scraper y su score balanceado. La encuesta “¿Quién es el mejor piloto?” de esta misma página viene de Google Sheets y muestra conteos directos de respuestas, sin aplicar ese score.</p>
+  </section>
+
   <section aria-labelledby="drivers-chart-title">
     ${sectionHeading("01 · PILOTOS", "drivers-chart-title", "Evolución de los pilotos", "ELO retrospectivo · acercá, desplazá y compará")}
     <div class="explorer" id="driver-explorer">
