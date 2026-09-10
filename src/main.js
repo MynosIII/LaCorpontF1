@@ -134,7 +134,7 @@ function render(data) {
         <p>El snapshot del 29 de agosto de 2026 toma comentarios de YouTube, Reddit y foros públicos. De 16.364 comentarios únicos quedaron 1.632 elecciones explícitas; 33 conversaciones con cinco votos válidos o más entraron al índice.</p>
         <code>score = media de cuotas por fuente → media por plataforma → peso igual entre plataformas</code>
         <p>Antes del cálculo se anonimizan autores y se eliminan duplicados, conflictos y menciones ambiguas. El porcentaje es un índice balanceado de esa muestra de conversaciones, no una encuesta representativa de todos los fans.</p>
-        <a class="method-link" href="https://github.com/MynosIII/TelemetryOne/blob/main/docs/OPINION_POLL.md" target="_blank" rel="noreferrer">Leer metodología del scraper ↗</a>
+        <a class="method-link" href="https://github.com/MynosIII/LaCorpontF1/blob/main/docs/OPINION_POLL_ES.md" target="_blank" rel="noreferrer">Leer metodología del scraper ↗</a>
       </article>
     </div>
     <p class="method-separation"><strong>No mezclar:</strong> el Fan Index usa el scraper y su score balanceado. La encuesta “¿Quién es el mejor piloto?” de esta misma página viene de Google Sheets y muestra conteos directos de respuestas, sin aplicar ese score.</p>
