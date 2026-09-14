@@ -1,7 +1,8 @@
 import Plotly from "plotly.js-dist-min";
+import { surveyRecords, surveyVariables, weightedRanking, weightedVoteRows } from "./survey.js";
 
 const DATA_URL = "./data/v7_6.json";
-const LIVE_SURVEY_URL = "https://docs.google.com/spreadsheets/d/1w6jGPveRXEOXN-UFxvS9dqaWgV2aKTvGqJUD8vVYe6I/gviz/tq?tqx=out:csv&gid=1937071380";
+const LIVE_SURVEY_URL = "https://docs.google.com/spreadsheets/d/13p58SpkkGQqmZIS4VREej0Kqhi14y8rQmCkzGmx40QU/gviz/tq?tqx=out:csv&gid=1975671607";
 const DRIVER_IMAGES_URL = "https://raw.githubusercontent.com/MynosIII/F1-Telemetry-Games/main/shared/driver_images.json";
 const DRIVER_IMAGE_REPOSITORY_ROOT = "https://raw.githubusercontent.com/MynosIII/F1-Telemetry-Games/main/";
 const app = document.querySelector("#app");
@@ -9,6 +10,7 @@ const app = document.querySelector("#app");
 app.innerHTML = `<div class="loading"><strong>F1 HISTÓRICA</strong><p>Cargando 76 temporadas de datos…</p></div>`;
 
 const number = new Intl.NumberFormat("es-AR");
+const voteNumber = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 });
 const percentage = new Intl.NumberFormat("es-AR", { style: "percent", maximumFractionDigits: 1 });
 const imageCache = new Map();
 let driverImagesPromise = null;
@@ -138,7 +140,7 @@ function render(data) {
         <a class="method-link" href="https://github.com/MynosIII/TelemetryOne/blob/main/public/data/exports/fan-index-sources.csv" target="_blank" rel="noreferrer">Ver fuentes consultadas ↗</a>
       </article>
     </div>
-    <p class="method-separation"><strong>No mezclar:</strong> el Fan Index usa el scraper y su score balanceado. La encuesta “¿Quién es el mejor piloto?” de esta misma página viene de Google Sheets y muestra conteos directos de respuestas, sin aplicar ese score.</p>
+    <p class="method-separation"><strong>No mezclar:</strong> el Fan Index usa el scraper y su score balanceado. La encuesta “¿Quién es el mejor piloto?” de esta misma página viene de Google Sheets; cada persona aporta un voto total, dividido en partes iguales si menciona más de un piloto.</p>
   </section>
 
   <section aria-labelledby="drivers-chart-title">
@@ -225,8 +227,9 @@ function render(data) {
   initDriverDialog();
   initDriverExplorer(data, drivers, driverMap, leaderIds);
   initBrandExplorer(data, brands);
-  updateLiveChart();
-  window.setInterval(updateLiveChart, 60000);
+  const driverNames = drivers.map((driver) => driver.name);
+  updateLiveChart(driverNames);
+  window.setInterval(() => updateLiveChart(driverNames), 60000);
 }
 
 function baseLayout(data, yTitle, percentageAxis = false) {
@@ -604,56 +607,16 @@ function parseCsv(text) {
   return rows.filter((values) => values.some(Boolean));
 }
 
-function canonicalDriverAnswer(answer) {
-  const normalized = searchKey(answer);
-  const aliases = [
-    ["Juan Manuel Fangio", ["fangio"]], ["Max Verstappen", ["verstappen", "vesrtappen"]],
-    ["Ayrton Senna", ["senna"]], ["Michael Schumacher", ["schumacher"]],
-    ["Lewis Hamilton", ["hamilton"]], ["Fernando Alonso", ["alonso"]],
-    ["Jim Clark", ["jim clark", "clark"]], ["Alain Prost", ["prost"]],
-    ["Niki Lauda", ["lauda"]], ["Sebastian Vettel", ["vettel"]],
-    ["Gilles Villeneuve", ["gilles", "villeneuve"]]
-  ];
-  let match = null;
-  for (const [name, values] of aliases) {
-    for (const value of values) {
-      const position = normalized.indexOf(value);
-      if (position >= 0 && (!match || position < match.position)) match = { name, position };
-    }
-  }
-  if (match) return match.name;
-  const cleaned = String(answer).trim().replace(/\s+/g, " ");
-  return cleaned.length > 38 ? `${cleaned.slice(0, 35)}…` : cleaned || "Sin respuesta";
-}
-
-const surveyVariables = [
-  { key: "gender", label: "Género", header: "género" },
-  { key: "age", label: "Edad", header: "edad" },
-  { key: "follows", label: "Sigue la F1", header: "seguís la formula 1" },
-  { key: "years", label: "Antigüedad como fan", header: "hace cuánto" },
-  { key: "carWeight", label: "Peso del auto vs. piloto", header: "qué pesa más" },
-  { key: "fairness", label: "¿Títulos/victorias son injustos?", header: "contar solo las victorias" },
-  { key: "statistics", label: "Valor dado a estadísticas", header: "estadísticas procesadas" },
-  { key: "wouldUse", label: "Usaría la página", header: "la usarías" }
-];
-
-function surveyRecords(rows) {
-  const headers = rows[0].map(searchKey);
-  const driverIndex = headers.findIndex((header) => header.includes("mejor piloto de la historia"));
-  const indexes = Object.fromEntries(surveyVariables.map((variable) => [variable.key, headers.findIndex((header) => header.includes(searchKey(variable.header)))]));
-  return rows.slice(1).filter((row) => row[driverIndex]?.trim()).map((row) => ({
-    driver: canonicalDriverAnswer(row[driverIndex]),
-    values: Object.fromEntries(surveyVariables.map((variable) => [variable.key, indexes[variable.key] >= 0 ? row[indexes[variable.key]]?.trim() || "Sin respuesta" : "Sin datos"]))
-  }));
-}
-
 function cramersV(records, variableKey, choices) {
   const groups = [...new Set(records.map((record) => record.values[variableKey]))];
   if (groups.length < 2 || choices.length < 2) return 0;
-  const table = groups.map((group) => choices.map((choice) => records.filter((record) => record.values[variableKey] === group && record.driver === choice).length));
+  const voteRows = weightedVoteRows(records, choices.filter((choice) => choice !== "Otros"));
+  const table = groups.map((group) => choices.map((choice) => voteRows
+    .filter((record) => record.values[variableKey] === group && record.driver === choice)
+    .reduce((sum, record) => sum + record.weight, 0)));
   const rowTotals = table.map((row) => row.reduce((sum, value) => sum + value, 0));
   const columnTotals = choices.map((_, index) => table.reduce((sum, row) => sum + row[index], 0));
-  const total = records.length;
+  const total = rowTotals.reduce((sum, value) => sum + value, 0);
   let chiSquare = 0;
   table.forEach((row, rowIndex) => row.forEach((observed, columnIndex) => {
     const expected = rowTotals[rowIndex] * columnTotals[columnIndex] / total;
@@ -673,32 +636,31 @@ function associationLabel(value) {
 function renderSurveyCorrelation(records, variableKey, topChoices) {
   const target = document.querySelector("#correlation-view");
   const variable = surveyVariables.find((item) => item.key === variableKey) ?? surveyVariables[0];
-  const choices = [...new Set(records.map((record) => topChoices.includes(record.driver) ? record.driver : "Otros"))];
-  const normalizedRecords = records.map((record) => ({ ...record, driver: topChoices.includes(record.driver) ? record.driver : "Otros" }));
-  const groups = [...new Set(normalizedRecords.map((record) => record.values[variableKey]))];
-  const value = cramersV(normalizedRecords, variableKey, choices);
+  const voteRows = weightedVoteRows(records, topChoices);
+  const choices = [...new Set(voteRows.map((record) => record.driver))];
+  const groups = [...new Set(records.map((record) => record.values[variableKey]))];
+  const value = cramersV(records, variableKey, choices);
   target.innerHTML = `<div class="correlation-head"><div><span>ASOCIACIÓN EXPLORATORIA</span><strong>V de Cramér ${value.toFixed(2)} · ${associationLabel(value)}</strong></div><p>La muestra es pequeña: el valor describe estas respuestas, no a toda la afición.</p></div><div class="correlation-legend">${choices.map((choice) => `<span><i style="background:${colorFor(choice)}"></i>${escapeHtml(choice)}</span>`).join("")}</div><div class="correlation-groups">${groups.map((group) => {
-    const groupRecords = normalizedRecords.filter((record) => record.values[variableKey] === group);
+    const groupRecords = records.filter((record) => record.values[variableKey] === group);
+    const groupVotes = voteRows.filter((record) => record.values[variableKey] === group);
     return `<div class="correlation-row"><div><strong>${escapeHtml(group)}</strong><span>${groupRecords.length} respuesta${groupRecords.length === 1 ? "" : "s"}</span></div><div class="stacked-bar" aria-label="${escapeHtml(variable.label)}: ${escapeHtml(group)}">${choices.map((choice) => {
-      const count = groupRecords.filter((record) => record.driver === choice).length;
-      return count ? `<i style="width:${count / groupRecords.length * 100}%;background:${colorFor(choice)}" title="${escapeHtml(choice)}: ${count}"></i>` : "";
+      const count = groupVotes.filter((record) => record.driver === choice).reduce((sum, record) => sum + record.weight, 0);
+      return count ? `<i style="width:${count / groupRecords.length * 100}%;background:${colorFor(choice)}" title="${escapeHtml(choice)}: ${voteNumber.format(count)}"></i>` : "";
     }).join("")}</div></div>`;
   }).join("")}</div>`;
 }
 
-async function updateLiveChart() {
+async function updateLiveChart(driverNames) {
   const target = document.querySelector("#live-chart");
   if (!target) return;
   try {
     const response = await fetch(`${LIVE_SURVEY_URL}&_=${Date.now()}`, { cache: "no-store" });
     if (!response.ok) throw new Error();
-    const records = surveyRecords(parseCsv(await response.text()));
-    const counts = new Map();
-    records.forEach((record) => counts.set(record.driver, (counts.get(record.driver) ?? 0) + 1));
-    const ranking = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"));
+    const records = surveyRecords(parseCsv(await response.text()), driverNames);
+    const ranking = weightedRanking(records);
     const topChoices = ranking.slice(0, 5).map(([driver]) => driver);
     const leaderCount = ranking[0]?.[1] ?? 1;
-    target.innerHTML = `<div class="poll-summary"><div class="live-total"><strong>${records.length}</strong><span>respuestas</span></div><div class="poll-ranking">${ranking.map(([driver, count], index) => `<div class="poll-row"><span>${index + 1}</span><strong>${escapeHtml(driver)}</strong><div class="live-track"><i style="width:${count / leaderCount * 100}%;background:${colorFor(driver)}"></i></div><b>${count}</b><em>${percentage.format(count / records.length)}</em></div>`).join("")}</div></div><div class="correlation-control"><label for="correlation-variable">Cruzar la elección del mejor piloto por</label><select id="correlation-variable">${surveyVariables.map((variable) => `<option value="${variable.key}">${escapeHtml(variable.label)}</option>`).join("")}</select></div><div id="correlation-view" class="correlation-view"></div>`;
+    target.innerHTML = `<div class="poll-summary"><div class="live-total"><strong>${records.length}</strong><span>personas · 1 voto total por persona</span></div><div class="poll-ranking">${ranking.map(([driver, count], index) => `<div class="poll-row"><span>${index + 1}</span><strong>${escapeHtml(driver)}</strong><div class="live-track"><i style="width:${count / leaderCount * 100}%;background:${colorFor(driver)}"></i></div><b>${voteNumber.format(count)}</b><em>${percentage.format(count / records.length)}</em></div>`).join("")}</div></div><div class="correlation-control"><label for="correlation-variable">Cruzar la elección del mejor piloto por</label><select id="correlation-variable">${surveyVariables.map((variable) => `<option value="${variable.key}">${escapeHtml(variable.label)}</option>`).join("")}</select></div><div id="correlation-view" class="correlation-view"></div>`;
     const select = document.querySelector("#correlation-variable");
     select.value = "age";
     select.addEventListener("change", () => renderSurveyCorrelation(records, select.value, topChoices));
