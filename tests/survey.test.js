@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { extractDriverVotes, surveyRecords, weightedRanking } from "../src/survey.js";
+import { categoricalAssociation, correlationMatrix, extractDriverVotes, surveyRecords, weightedRanking } from "../src/survey.js";
 
 const drivers = [
   "Juan Manuel Fangio", "Michael Schumacher", "Ralf Schumacher", "Lewis Hamilton",
@@ -9,6 +9,7 @@ const drivers = [
 
 test("limpia emojis, errores frecuentes y respuestas con varios pilotos", () => {
   assert.deepEqual(extractDriverVotes("LANDO NORRIS 🫦🐱", drivers), ["Lando Norris"]);
+  assert.deepEqual(extractDriverVotes("Sena", drivers), ["Ayrton Senna"]);
   assert.deepEqual(extractDriverVotes("Max Verstapen / Michael Schumacher", drivers), ["Max Verstappen", "Michael Schumacher"]);
   assert.deepEqual(extractDriverVotes("Juan Manuel Fangio, Michael Schumacher y Lewis Hamilton", drivers), ["Juan Manuel Fangio", "Michael Schumacher", "Lewis Hamilton"]);
 });
@@ -53,6 +54,7 @@ test("une las ramas española e inglesa y conserva una sola fila por persona", (
   assert.deepEqual(records[1].votes, ["Lewis Hamilton", "Max Verstappen"]);
   assert.equal(records[0].values.gender, "Femenino");
   assert.equal(records[1].values.gender, "Masculino");
+  assert.equal(records[1].values.age, "25 a 34");
   assert.equal(records[1].values.years, "2 a 4 años");
   assert.equal(records[1].values.statistics, "Casi nada");
 });
@@ -66,4 +68,24 @@ test("divide un voto en partes iguales sin inflar el total", () => {
   assert.equal(ranking.get("Juan Manuel Fangio"), 1 + 1 / 3);
   assert.equal(ranking.get("Michael Schumacher"), 1 / 3);
   assert.ok(Math.abs([...ranking.values()].reduce((sum, value) => sum + value, 0) - 2) < 1e-12);
+});
+
+test("calcula cruces entre dos preguntas y excluye respuestas faltantes", () => {
+  const records = [
+    { values: { age: "18 a 24", follows: "Sí", gender: "Femenino" } },
+    { values: { age: "18 a 24", follows: "Sí", gender: "Masculino" } },
+    { values: { age: "50 o más", follows: "No", gender: "Femenino" } },
+    { values: { age: "50 o más", follows: "No", gender: "Masculino" } },
+    { values: { age: "Sin respuesta", follows: "Sí", gender: "Masculino" } }
+  ];
+  const association = categoricalAssociation(records, "age", "follows");
+  assert.equal(association.sampleSize, 4);
+  assert.equal(association.value, 1);
+  assert.deepEqual(association.table.flat().sort((a, b) => a - b), [0, 0, 2, 2]);
+  assert.equal(categoricalAssociation(records, "age", "age").value, null);
+  const matrix = correlationMatrix(records, [
+    { key: "age" }, { key: "follows" }, { key: "gender" }
+  ]);
+  assert.equal(matrix[0][0].value, null);
+  assert.equal(matrix[0][1].value, matrix[1][0].value);
 });

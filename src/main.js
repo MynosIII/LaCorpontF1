@@ -1,5 +1,5 @@
 import Plotly from "plotly.js-dist-min";
-import { surveyRecords, surveyVariables, weightedRanking, weightedVoteRows } from "./survey.js";
+import { categoricalAssociation, correlationMatrix, surveyRecords, surveyVariables, weightedRanking } from "./survey.js";
 
 const DATA_URL = "./data/v7_6.json";
 const LIVE_SURVEY_URL = "https://docs.google.com/spreadsheets/d/13p58SpkkGQqmZIS4VREej0Kqhi14y8rQmCkzGmx40QU/gviz/tq?tqx=out:csv&gid=1975671607";
@@ -100,6 +100,39 @@ function sectionHeading(numberLabel, id, title, copy) {
   return `<div class="section-title"><div><p class="number">${numberLabel}</p><h2 id="${id}">${title}</h2></div><p>${copy}</p></div>`;
 }
 
+function ratingMethodCard() {
+  return `<article class="method-card method-inline formula-card">
+    <p class="method-label">RATING DE PILOTOS</p>
+    <h3>Cómo se calcula el ELO</h3>
+    <p>Cada piloto se compara con todos los rivales de la carrera. La expectativa surge de la diferencia de fuerza previa, ajustada por auto, circuito, qualifying y contexto:</p>
+    <code>esperadoᵢ = promedioⱼ logistic((fuerzaᵢ − fuerzaⱼ) / 260)</code>
+    <code>Δ ELO = K de temporada × (rendimiento observado − esperado)</code>
+    <p>El K base de carrera es 24 y se ajusta por la cantidad de fechas para que temporadas cortas y largas tengan un presupuesto comparable. Los cambios se limitan y centran para sumar cero por evento; fallas mecánicas no se cargan al piloto. Es un análisis retrospectivo, no una estadística oficial.</p>
+  </article>`;
+}
+
+function sourceMethodCard(data) {
+  return `<article class="method-card method-inline source-card">
+    <p class="method-label">BASE HISTÓRICA · 1950–2025</p>
+    <h3>Jolpica + F1DB</h3>
+    <p>La cronología inicial de carreras y resultados viene de <a href="https://github.com/jolpica/jolpica-f1" target="_blank" rel="noreferrer">Jolpica F1</a>, la continuidad comunitaria de la API Ergast. Esa base se cruza con <a href="https://github.com/f1db/f1db" target="_blank" rel="noreferrer">F1DB</a> para qualifying, identidad de pilotos y constructores, chasis y trazados.</p>
+    <p>Historical XW procesa esa unión y TelemetryOne publica aquí el dataset <strong>${escapeHtml(data.meta.model)}</strong>: ${number.format(data.meta.observations)} registros de ${number.format(data.meta.events)} Grandes Premios.</p>
+    <a class="method-link" href="https://github.com/MynosIII/TelemetryOne" target="_blank" rel="noreferrer">Ver dataset y código ↗</a>
+  </article>`;
+}
+
+function scraperMethodCard() {
+  return `<article class="method-card method-inline scraper-card">
+    <p class="method-label">FAN INDEX · SCRAPER</p>
+    <h3>De comentarios públicos a score</h3>
+    <p>El snapshot del 29 de agosto de 2026 toma comentarios de YouTube, Reddit y foros públicos. De 16.364 comentarios únicos quedaron 1.632 elecciones explícitas; 33 conversaciones con cinco votos válidos o más entraron al índice.</p>
+    <code>score = media de cuotas por fuente → media por plataforma → peso igual entre plataformas</code>
+    <p>Antes del cálculo se anonimizan autores y se eliminan duplicados, conflictos y menciones ambiguas. El porcentaje es un índice balanceado de esa muestra de conversaciones, no una encuesta representativa de todos los fans.</p>
+    <a class="method-link" href="https://github.com/MynosIII/LaCorpontF1/blob/main/docs/OPINION_POLL_ES.md" target="_blank" rel="noreferrer">Leer metodología del scraper ↗</a>
+    <a class="method-link" href="https://github.com/MynosIII/TelemetryOne/blob/main/public/data/exports/fan-index-sources.csv" target="_blank" rel="noreferrer">Ver fuentes consultadas ↗</a>
+  </article>`;
+}
+
 function render(data) {
   const drivers = Object.values(data.drivers).filter((driver) => driver.points?.length)
     .sort((a, b) => (a.rank ?? 9999) - (b.rank ?? 9999) || a.name.localeCompare(b.name, "es"));
@@ -111,37 +144,6 @@ function render(data) {
     <div><p class="eyebrow">FÓRMULA 1 · ${data.meta.firstSeason}–${data.meta.lastSeason}</p><h1>Historia y rendimiento</h1><p class="intro">Dos lecturas del mismo deporte: la evolución de los pilotos y la continuidad técnica de cada marca, carrera por carrera.</p></div>
     <p class="count"><strong>${number.format(drivers.length)}</strong> pilotos<br><strong>${number.format(brands.length)}</strong> marcas<br><a class="audience-link" href="./audiencia.html">Explorar audiencia 2025 →</a></p>
   </header>
-
-  <section class="method-section" aria-labelledby="method-title">
-    ${sectionHeading("00 · FUENTES Y MÉTODO", "method-title", "De dónde sale cada número", "Datos deportivos, rating y opinión miden cosas distintas")}
-    <div class="method-grid">
-      <article class="method-card source-card">
-        <p class="method-label">BASE HISTÓRICA · 1950–2025</p>
-        <h3>Jolpica + F1DB</h3>
-        <p>La cronología inicial de carreras y resultados viene de <a href="https://github.com/jolpica/jolpica-f1" target="_blank" rel="noreferrer">Jolpica F1</a>, la continuidad comunitaria de la API Ergast. Esa base se cruza con <a href="https://github.com/f1db/f1db" target="_blank" rel="noreferrer">F1DB</a> para qualifying, identidad de pilotos y constructores, chasis y trazados.</p>
-        <p>Historical XW procesa esa unión y TelemetryOne publica aquí el dataset <strong>${escapeHtml(data.meta.model)}</strong>: ${number.format(data.meta.observations)} registros de ${number.format(data.meta.events)} Grandes Premios.</p>
-        <a class="method-link" href="https://github.com/MynosIII/TelemetryOne" target="_blank" rel="noreferrer">Ver dataset y código ↗</a>
-      </article>
-      <article class="method-card formula-card">
-        <p class="method-label">RATING DE PILOTOS</p>
-        <h3>Cómo se calcula el ELO</h3>
-        <p>Cada piloto se compara con todos los rivales de la carrera. La expectativa surge de la diferencia de fuerza previa, ajustada por auto, circuito, qualifying y contexto:</p>
-        <code>esperadoᵢ = promedioⱼ logistic((fuerzaᵢ − fuerzaⱼ) / 260)</code>
-        <code>Δ ELO = K de temporada × (rendimiento observado − esperado)</code>
-        <p>El K base de carrera es 24 y se ajusta por la cantidad de fechas para que temporadas cortas y largas tengan un presupuesto comparable. Los cambios se limitan y centran para sumar cero por evento; fallas mecánicas no se cargan al piloto. Es un análisis retrospectivo, no una estadística oficial.</p>
-      </article>
-      <article class="method-card scraper-card">
-        <p class="method-label">FAN INDEX · SCRAPER</p>
-        <h3>De comentarios públicos a score</h3>
-        <p>El snapshot del 29 de agosto de 2026 toma comentarios de YouTube, Reddit y foros públicos. De 16.364 comentarios únicos quedaron 1.632 elecciones explícitas; 33 conversaciones con cinco votos válidos o más entraron al índice.</p>
-        <code>score = media de cuotas por fuente → media por plataforma → peso igual entre plataformas</code>
-        <p>Antes del cálculo se anonimizan autores y se eliminan duplicados, conflictos y menciones ambiguas. El porcentaje es un índice balanceado de esa muestra de conversaciones, no una encuesta representativa de todos los fans.</p>
-        <a class="method-link" href="https://github.com/MynosIII/LaCorpontF1/blob/main/docs/OPINION_POLL_ES.md" target="_blank" rel="noreferrer">Leer metodología del scraper ↗</a>
-        <a class="method-link" href="https://github.com/MynosIII/TelemetryOne/blob/main/public/data/exports/fan-index-sources.csv" target="_blank" rel="noreferrer">Ver fuentes consultadas ↗</a>
-      </article>
-    </div>
-    <p class="method-separation"><strong>No mezclar:</strong> el Fan Index usa el scraper y su score balanceado. La encuesta “¿Quién es el mejor piloto?” de esta misma página viene de Google Sheets; cada persona aporta un voto total, dividido en partes iguales si menciona más de un piloto.</p>
-  </section>
 
   <section aria-labelledby="drivers-chart-title">
     ${sectionHeading("01 · PILOTOS", "drivers-chart-title", "Evolución de los pilotos", "ELO retrospectivo · acercá, desplazá y compará")}
@@ -166,6 +168,7 @@ function render(data) {
         <div class="plot-column"><div id="driver-chart" class="plot" role="img" aria-label="Gráfico interactivo del ELO histórico de pilotos"></div><p class="chart-help">Pasá por una línea para identificar al piloto y ver la carrera, el auto y el cambio de ELO. Usá la rueda para acercar y arrastrá para moverte.</p></div>
       </div>
     </div>
+    ${ratingMethodCard()}
   </section>
 
   <section aria-labelledby="brands-chart-title">
@@ -189,6 +192,7 @@ function render(data) {
         <div class="plot-column"><div id="brand-chart" class="plot" role="img" aria-label="Gráfico interactivo del rendimiento histórico de las marcas"></div><p class="chart-help">Cada punto resume los modelos de esa marca en el Gran Premio. El promedio está ponderado por inscripciones; el detalle de modelos aparece al pasar el cursor.</p></div>
       </div>
     </div>
+    ${sourceMethodCard(data)}
   </section>
 
   <section aria-labelledby="live-title">
@@ -200,6 +204,8 @@ function render(data) {
   <section aria-labelledby="fan-title">
     ${sectionHeading("04", "fan-title", "Fan Index", "Preferencias históricas ponderadas")}
     <div class="fan-list">${[["Ayrton Senna",28.04],["Michael Schumacher",20.55],["Juan Manuel Fangio",15.39],["Jim Clark",9.15],["Lewis Hamilton",8.88],["Fernando Alonso",4.44],["Gilles Villeneuve",2.86],["Max Verstappen",2.09]].map((item,index) => `<div class="fan-row"><span>${index+1}</span><strong>${item[0]}</strong><div class="bar"><i style="width:${item[1]/28.04*100}%"></i></div><b>${item[1]}%</b></div>`).join("")}</div>
+    ${scraperMethodCard()}
+    <p class="method-separation"><strong>No mezclar:</strong> el Fan Index usa el scraper y su score balanceado. La encuesta “¿Quién es el mejor piloto?” de esta misma página viene de Google Sheets; cada persona aporta un voto total, dividido en partes iguales si menciona más de un piloto.</p>
   </section>
   <dialog class="driver-dialog" id="driver-dialog" aria-labelledby="driver-dialog-title">
     <div class="dialog-scroll">
@@ -607,25 +613,6 @@ function parseCsv(text) {
   return rows.filter((values) => values.some(Boolean));
 }
 
-function cramersV(records, variableKey, choices) {
-  const groups = [...new Set(records.map((record) => record.values[variableKey]))];
-  if (groups.length < 2 || choices.length < 2) return 0;
-  const voteRows = weightedVoteRows(records, choices.filter((choice) => choice !== "Otros"));
-  const table = groups.map((group) => choices.map((choice) => voteRows
-    .filter((record) => record.values[variableKey] === group && record.driver === choice)
-    .reduce((sum, record) => sum + record.weight, 0)));
-  const rowTotals = table.map((row) => row.reduce((sum, value) => sum + value, 0));
-  const columnTotals = choices.map((_, index) => table.reduce((sum, row) => sum + row[index], 0));
-  const total = rowTotals.reduce((sum, value) => sum + value, 0);
-  let chiSquare = 0;
-  table.forEach((row, rowIndex) => row.forEach((observed, columnIndex) => {
-    const expected = rowTotals[rowIndex] * columnTotals[columnIndex] / total;
-    if (expected > 0) chiSquare += ((observed - expected) ** 2) / expected;
-  }));
-  const denominator = total * Math.min(groups.length - 1, choices.length - 1);
-  return denominator > 0 ? Math.sqrt(chiSquare / denominator) : 0;
-}
-
 function associationLabel(value) {
   if (value < 0.1) return "muy débil";
   if (value < 0.3) return "débil";
@@ -633,21 +620,60 @@ function associationLabel(value) {
   return "fuerte";
 }
 
-function renderSurveyCorrelation(records, variableKey, topChoices) {
+let activeSurveyVariables = ["age", "follows"];
+
+function variableFor(key) {
+  return surveyVariables.find((variable) => variable.key === key) ?? surveyVariables[0];
+}
+
+function heatStyle(value) {
+  const alpha = value ? 0.08 + value * 0.68 : 0.02;
+  return `background:rgba(231,0,0,${alpha.toFixed(3)});color:${alpha > 0.52 ? "#fff" : "#111"}`;
+}
+
+function renderPairAssociation(records, firstKey, secondKey) {
   const target = document.querySelector("#correlation-view");
-  const variable = surveyVariables.find((item) => item.key === variableKey) ?? surveyVariables[0];
-  const voteRows = weightedVoteRows(records, topChoices);
-  const choices = [...new Set(voteRows.map((record) => record.driver))];
-  const groups = [...new Set(records.map((record) => record.values[variableKey]))];
-  const value = cramersV(records, variableKey, choices);
-  target.innerHTML = `<div class="correlation-head"><div><span>ASOCIACIÓN EXPLORATORIA</span><strong>V de Cramér ${value.toFixed(2)} · ${associationLabel(value)}</strong></div><p>La muestra es pequeña: el valor describe estas respuestas, no a toda la afición.</p></div><div class="correlation-legend">${choices.map((choice) => `<span><i style="background:${colorFor(choice)}"></i>${escapeHtml(choice)}</span>`).join("")}</div><div class="correlation-groups">${groups.map((group) => {
-    const groupRecords = records.filter((record) => record.values[variableKey] === group);
-    const groupVotes = voteRows.filter((record) => record.values[variableKey] === group);
-    return `<div class="correlation-row"><div><strong>${escapeHtml(group)}</strong><span>${groupRecords.length} respuesta${groupRecords.length === 1 ? "" : "s"}</span></div><div class="stacked-bar" aria-label="${escapeHtml(variable.label)}: ${escapeHtml(group)}">${choices.map((choice) => {
-      const count = groupVotes.filter((record) => record.driver === choice).reduce((sum, record) => sum + record.weight, 0);
-      return count ? `<i style="width:${count / groupRecords.length * 100}%;background:${colorFor(choice)}" title="${escapeHtml(choice)}: ${voteNumber.format(count)}"></i>` : "";
-    }).join("")}</div></div>`;
-  }).join("")}</div>`;
+  const firstVariable = variableFor(firstKey);
+  const secondVariable = variableFor(secondKey);
+  const association = categoricalAssociation(records, firstKey, secondKey);
+  if (!association.sampleSize || !association.rowLabels.length || !association.columnLabels.length) {
+    target.innerHTML = `<p class="correlation-empty">No hay suficientes respuestas completas para este cruce.</p>`;
+    return;
+  }
+  const rowTotals = association.table.map((row) => row.reduce((sum, count) => sum + count, 0));
+  target.innerHTML = `<div class="correlation-head"><div><span>ASOCIACIÓN EXPLORATORIA · ${association.sampleSize} RESPUESTAS COMPLETAS</span><strong>V de Cramér ${association.value.toFixed(2)} · ${associationLabel(association.value)}</strong></div><p>La tabla muestra la distribución de <strong>${escapeHtml(secondVariable.label)}</strong> dentro de cada respuesta de <strong>${escapeHtml(firstVariable.label)}</strong>.</p></div><div class="cross-table-scroll"><table class="cross-table"><thead><tr><th scope="col">${escapeHtml(firstVariable.label)} ↓ / ${escapeHtml(secondVariable.label)} →</th>${association.columnLabels.map((label) => `<th scope="col">${escapeHtml(label)}</th>`).join("")}</tr></thead><tbody>${association.rowLabels.map((rowLabel, rowIndex) => `<tr><th scope="row">${escapeHtml(rowLabel)}<span>n=${rowTotals[rowIndex]}</span></th>${association.columnLabels.map((columnLabel, columnIndex) => {
+    const count = association.table[rowIndex][columnIndex];
+    const share = rowTotals[rowIndex] ? count / rowTotals[rowIndex] : 0;
+    return `<td style="${heatStyle(share)}" title="${escapeHtml(rowLabel)} × ${escapeHtml(columnLabel)}: ${count} (${percentage.format(share)})"><strong>${count}</strong><span>${percentage.format(share)}</span></td>`;
+  }).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+
+function syncSurveySelectors(firstSelect, secondSelect, changedSelect = null) {
+  if (firstSelect.value === secondSelect.value) {
+    const replacement = surveyVariables.find((variable) => variable.key !== firstSelect.value)?.key;
+    if (changedSelect === firstSelect) secondSelect.value = replacement;
+    else firstSelect.value = replacement;
+  }
+  [...firstSelect.options].forEach((option) => { option.disabled = option.value === secondSelect.value; });
+  [...secondSelect.options].forEach((option) => { option.disabled = option.value === firstSelect.value; });
+  activeSurveyVariables = [firstSelect.value, secondSelect.value];
+}
+
+function renderSurveyMatrix(records, firstSelect, secondSelect) {
+  const target = document.querySelector("#correlation-matrix");
+  const matrix = correlationMatrix(records);
+  target.innerHTML = `<div class="matrix-head"><div><span>MAPA GENERAL</span><h3>Matriz de correlaciones entre preguntas</h3></div><p>V de Cramér: 0 indica poca asociación y 1 una asociación fuerte. No implica causalidad.</p></div><div class="matrix-scroll"><table class="matrix-table"><thead><tr><th scope="col">Pregunta</th>${surveyVariables.map((variable) => `<th scope="col" title="${escapeHtml(variable.label)}">${escapeHtml(variable.label)}</th>`).join("")}</tr></thead><tbody>${surveyVariables.map((rowVariable, rowIndex) => `<tr><th scope="row">${escapeHtml(rowVariable.label)}</th>${surveyVariables.map((columnVariable, columnIndex) => {
+    const cell = matrix[rowIndex][columnIndex];
+    if (cell.value === null) return `<td class="matrix-diagonal" aria-label="${escapeHtml(rowVariable.label)} consigo misma">—</td>`;
+    return `<td style="${heatStyle(cell.value)}"><button type="button" data-matrix-row="${rowVariable.key}" data-matrix-column="${columnVariable.key}" title="${escapeHtml(rowVariable.label)} × ${escapeHtml(columnVariable.label)}: V=${cell.value.toFixed(2)}; n=${cell.sampleSize}">${cell.value.toFixed(2)}</button></td>`;
+  }).join("")}</tr>`).join("")}</tbody></table></div><p class="matrix-note">Se excluyen las respuestas faltantes en cada par. Las preguntas de selección múltiple se comparan como la combinación completa elegida por cada persona.</p>`;
+  target.querySelectorAll("[data-matrix-row]").forEach((button) => button.addEventListener("click", () => {
+    firstSelect.value = button.dataset.matrixRow;
+    secondSelect.value = button.dataset.matrixColumn;
+    syncSurveySelectors(firstSelect, secondSelect);
+    renderPairAssociation(records, firstSelect.value, secondSelect.value);
+    document.querySelector("#correlation-view").scrollIntoView({ behavior: "smooth", block: "start" });
+  }));
 }
 
 async function updateLiveChart(driverNames) {
@@ -658,13 +684,22 @@ async function updateLiveChart(driverNames) {
     if (!response.ok) throw new Error();
     const records = surveyRecords(parseCsv(await response.text()), driverNames);
     const ranking = weightedRanking(records);
-    const topChoices = ranking.slice(0, 5).map(([driver]) => driver);
     const leaderCount = ranking[0]?.[1] ?? 1;
-    target.innerHTML = `<div class="poll-summary"><div class="live-total"><strong>${records.length}</strong><span>personas · 1 voto total por persona</span></div><div class="poll-ranking">${ranking.map(([driver, count], index) => `<div class="poll-row"><span>${index + 1}</span><strong>${escapeHtml(driver)}</strong><div class="live-track"><i style="width:${count / leaderCount * 100}%;background:${colorFor(driver)}"></i></div><b>${voteNumber.format(count)}</b><em>${percentage.format(count / records.length)}</em></div>`).join("")}</div></div><div class="correlation-control"><label for="correlation-variable">Cruzar la elección del mejor piloto por</label><select id="correlation-variable">${surveyVariables.map((variable) => `<option value="${variable.key}">${escapeHtml(variable.label)}</option>`).join("")}</select></div><div id="correlation-view" class="correlation-view"></div>`;
-    const select = document.querySelector("#correlation-variable");
-    select.value = "age";
-    select.addEventListener("change", () => renderSurveyCorrelation(records, select.value, topChoices));
-    renderSurveyCorrelation(records, select.value, topChoices);
+    const options = surveyVariables.map((variable) => `<option value="${variable.key}">${escapeHtml(variable.label)}</option>`).join("");
+    target.innerHTML = `<div class="poll-summary"><div class="live-total"><strong>${records.length}</strong><span>personas · 1 voto total por persona</span></div><div class="poll-ranking">${ranking.map(([driver, count], index) => `<div class="poll-row"><span>${index + 1}</span><strong>${escapeHtml(driver)}</strong><div class="live-track"><i style="width:${count / leaderCount * 100}%;background:${colorFor(driver)}"></i></div><b>${voteNumber.format(count)}</b><em>${percentage.format(count / records.length)}</em></div>`).join("")}</div></div><div class="correlation-control"><div class="correlation-intro"><strong>Comparar dos preguntas</strong><span>Elegí dos variables distintas para explorar su asociación.</span></div><div class="correlation-selectors"><label for="correlation-variable-a"><span>Variable A</span><select id="correlation-variable-a">${options}</select></label><b aria-hidden="true">×</b><label for="correlation-variable-b"><span>Variable B</span><select id="correlation-variable-b">${options}</select></label></div></div><div id="correlation-view" class="correlation-view"></div><div id="correlation-matrix" class="correlation-matrix"></div>`;
+    const firstSelect = document.querySelector("#correlation-variable-a");
+    const secondSelect = document.querySelector("#correlation-variable-b");
+    firstSelect.value = activeSurveyVariables[0];
+    secondSelect.value = activeSurveyVariables[1];
+    syncSurveySelectors(firstSelect, secondSelect);
+    const updatePair = (changedSelect) => {
+      syncSurveySelectors(firstSelect, secondSelect, changedSelect);
+      renderPairAssociation(records, firstSelect.value, secondSelect.value);
+    };
+    firstSelect.addEventListener("change", () => updatePair(firstSelect));
+    secondSelect.addEventListener("change", () => updatePair(secondSelect));
+    renderPairAssociation(records, firstSelect.value, secondSelect.value);
+    renderSurveyMatrix(records, firstSelect, secondSelect);
   } catch {
     target.innerHTML = `<p>No se pudieron cargar las respuestas en vivo.</p>`;
   }
