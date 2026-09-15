@@ -1,5 +1,5 @@
 import Plotly from "plotly.js-dist-min";
-import { categoricalAssociation, correlationMatrix, surveyRecords, surveyVariables, weightedRanking } from "./survey.js";
+import { categoricalAssociation, optionCorrelationMatrix, strongestOptionCorrelations, surveyRecords, surveyVariables, weightedRanking } from "./survey.js";
 
 const DATA_URL = "./data/v7_6.json";
 const LIVE_SURVEY_URL = "https://docs.google.com/spreadsheets/d/13p58SpkkGQqmZIS4VREej0Kqhi14y8rQmCkzGmx40QU/gviz/tq?tqx=out:csv&gid=1975671607";
@@ -631,6 +631,17 @@ function heatStyle(value) {
   return `background:rgba(231,0,0,${alpha.toFixed(3)});color:${alpha > 0.52 ? "#fff" : "#111"}`;
 }
 
+function optionHeatStyle(value) {
+  const alpha = Math.abs(value) ? 0.08 + Math.abs(value) * 0.7 : 0.02;
+  const color = value < 0 ? "38,72,190" : "231,0,0";
+  return `background:rgba(${color},${alpha.toFixed(3)});color:${alpha > 0.5 ? "#fff" : "#111"}`;
+}
+
+function signedCorrelation(value) {
+  const rounded = Math.abs(value) < 0.005 ? 0 : value;
+  return `${rounded > 0 ? "+" : ""}${rounded.toFixed(2)}`;
+}
+
 function renderPairAssociation(records, firstKey, secondKey) {
   const target = document.querySelector("#correlation-view");
   const firstVariable = variableFor(firstKey);
@@ -641,10 +652,10 @@ function renderPairAssociation(records, firstKey, secondKey) {
     return;
   }
   const rowTotals = association.table.map((row) => row.reduce((sum, count) => sum + count, 0));
-  target.innerHTML = `<div class="correlation-head"><div><span>ASOCIACIÓN EXPLORATORIA · ${association.sampleSize} RESPUESTAS COMPLETAS</span><strong>V de Cramér ${association.value.toFixed(2)} · ${associationLabel(association.value)}</strong></div><p>La tabla muestra la distribución de <strong>${escapeHtml(secondVariable.label)}</strong> dentro de cada respuesta de <strong>${escapeHtml(firstVariable.label)}</strong>.</p></div><div class="cross-table-scroll"><table class="cross-table"><thead><tr><th scope="col">${escapeHtml(firstVariable.label)} ↓ / ${escapeHtml(secondVariable.label)} →</th>${association.columnLabels.map((label) => `<th scope="col">${escapeHtml(label)}</th>`).join("")}</tr></thead><tbody>${association.rowLabels.map((rowLabel, rowIndex) => `<tr><th scope="row">${escapeHtml(rowLabel)}<span>n=${rowTotals[rowIndex]}</span></th>${association.columnLabels.map((columnLabel, columnIndex) => {
+  target.innerHTML = `<div class="correlation-head"><div><span>ASOCIACIÓN EXPLORATORIA · ${association.sampleSize} RESPUESTAS COMPLETAS</span><strong>V de Cramér ${association.value.toFixed(2)} · ${associationLabel(association.value)}</strong></div><p>La tabla muestra la distribución de <strong>${escapeHtml(secondVariable.label)}</strong> dentro de cada respuesta de <strong>${escapeHtml(firstVariable.label)}</strong>.</p></div><div class="cross-table-scroll"><table class="cross-table"><thead><tr><th scope="col">${escapeHtml(firstVariable.label)} ↓ / ${escapeHtml(secondVariable.label)} →</th>${association.columnLabels.map((label) => `<th scope="col">${escapeHtml(label)}</th>`).join("")}</tr></thead><tbody>${association.rowLabels.map((rowLabel, rowIndex) => `<tr><th scope="row">${escapeHtml(rowLabel)}<span>n=${voteNumber.format(rowTotals[rowIndex])}</span></th>${association.columnLabels.map((columnLabel, columnIndex) => {
     const count = association.table[rowIndex][columnIndex];
     const share = rowTotals[rowIndex] ? count / rowTotals[rowIndex] : 0;
-    return `<td style="${heatStyle(share)}" title="${escapeHtml(rowLabel)} × ${escapeHtml(columnLabel)}: ${count} (${percentage.format(share)})"><strong>${count}</strong><span>${percentage.format(share)}</span></td>`;
+    return `<td style="${heatStyle(share)}" title="${escapeHtml(rowLabel)} × ${escapeHtml(columnLabel)}: ${voteNumber.format(count)} (${percentage.format(share)})"><strong>${voteNumber.format(count)}</strong><span>${percentage.format(share)}</span></td>`;
   }).join("")}</tr>`).join("")}</tbody></table></div>`;
 }
 
@@ -661,12 +672,27 @@ function syncSurveySelectors(firstSelect, secondSelect, changedSelect = null) {
 
 function renderSurveyMatrix(records, firstSelect, secondSelect) {
   const target = document.querySelector("#correlation-matrix");
-  const matrix = correlationMatrix(records);
-  target.innerHTML = `<div class="matrix-head"><div><span>MAPA GENERAL</span><h3>Matriz de correlaciones entre preguntas</h3></div><p>V de Cramér: 0 indica poca asociación y 1 una asociación fuerte. No implica causalidad.</p></div><div class="matrix-scroll"><table class="matrix-table"><thead><tr><th scope="col">Pregunta</th>${surveyVariables.map((variable) => `<th scope="col" title="${escapeHtml(variable.label)}">${escapeHtml(variable.label)}</th>`).join("")}</tr></thead><tbody>${surveyVariables.map((rowVariable, rowIndex) => `<tr><th scope="row">${escapeHtml(rowVariable.label)}</th>${surveyVariables.map((columnVariable, columnIndex) => {
-    const cell = matrix[rowIndex][columnIndex];
-    if (cell.value === null) return `<td class="matrix-diagonal" aria-label="${escapeHtml(rowVariable.label)} consigo misma">—</td>`;
-    return `<td style="${heatStyle(cell.value)}"><button type="button" data-matrix-row="${rowVariable.key}" data-matrix-column="${columnVariable.key}" title="${escapeHtml(rowVariable.label)} × ${escapeHtml(columnVariable.label)}: V=${cell.value.toFixed(2)}; n=${cell.sampleSize}">${cell.value.toFixed(2)}</button></td>`;
-  }).join("")}</tr>`).join("")}</tbody></table></div><p class="matrix-note">Se excluyen las respuestas faltantes en cada par. Las preguntas de selección múltiple se comparan como la combinación completa elegida por cada persona.</p>`;
+  const detail = optionCorrelationMatrix(records);
+  const optionIndex = new Map(detail.options.map((option, index) => [option.key, index]));
+  const columnGroups = detail.groups.map((group) => `<th class="matrix-question-group" scope="colgroup" colspan="${group.categories.length}">${escapeHtml(group.label)}</th>`).join("");
+  const columnOptions = detail.options.map((option) => `<th class="matrix-option-head" scope="col" title="${escapeHtml(option.variableLabel)}: ${escapeHtml(option.label)}"><span>${escapeHtml(option.label)}</span></th>`).join("");
+  const rows = detail.groups.flatMap((group) => group.categories.map((label, categoryIndex) => {
+    const rowOption = detail.options.find((option) => option.variableKey === group.key && option.label === label);
+    const rowIndex = optionIndex.get(rowOption.key);
+    const groupHeader = categoryIndex === 0 ? `<th class="matrix-row-question" scope="rowgroup" rowspan="${group.categories.length}">${escapeHtml(group.label)}</th>` : "";
+    const cells = detail.options.map((columnOption, columnIndex) => {
+      const cell = detail.matrix[rowIndex][columnIndex];
+      if (cell.value === null) return `<td class="matrix-diagonal" aria-label="${escapeHtml(group.label)}: ${escapeHtml(label)}, consigo misma">—</td>`;
+      const value = signedCorrelation(cell.value);
+      const title = `${group.label}: ${label} × ${columnOption.variableLabel}: ${columnOption.label}: φ=${value}; n=${cell.sampleSize}`;
+      if (group.key === columnOption.variableKey) return `<td class="matrix-same-question" style="${optionHeatStyle(cell.value)}"><span title="${escapeHtml(title)}">${value}</span></td>`;
+      return `<td style="${optionHeatStyle(cell.value)}"><button type="button" data-matrix-row="${group.key}" data-matrix-column="${columnOption.variableKey}" title="${escapeHtml(title)}">${value}</button></td>`;
+    }).join("");
+    return `<tr>${groupHeader}<th class="matrix-row-option" scope="row">${escapeHtml(label)}</th>${cells}</tr>`;
+  })).join("");
+  const strongest = strongestOptionCorrelations(records);
+  const highlights = strongest.length ? `<div class="matrix-highlights"><div class="matrix-highlights-head"><div><span>CRUCES DESTACADOS</span><h4>Correlaciones más altas entre opciones</h4></div><p>Se omiten cruces dentro de la misma pregunta y opciones con menos de dos respuestas ponderadas.</p></div><ol>${strongest.map((pair, index) => `<li><span>${String(index + 1).padStart(2, "0")}</span><div><strong>${escapeHtml(pair.rowOption.variableLabel)}: ${escapeHtml(pair.rowOption.label)}</strong><em>× ${escapeHtml(pair.columnOption.variableLabel)}: ${escapeHtml(pair.columnOption.label)}</em></div><b>φ ${signedCorrelation(pair.value)}</b><small>n=${pair.sampleSize}</small></li>`).join("")}</ol></div>` : "";
+  target.innerHTML = `<div class="matrix-head"><div><span>MAPA DETALLADO</span><h3>Matriz de correlaciones por opción</h3></div><p>Cada bloque pertenece a una pregunta y cada celda compara dos respuestas concretas. φ va de −1 a +1; el signo indica la dirección y no implica causalidad.</p></div><div class="matrix-scroll"><table class="matrix-table"><thead><tr><th rowspan="2" scope="col">Pregunta</th><th rowspan="2" scope="col">Opción</th>${columnGroups}</tr><tr>${columnOptions}</tr></thead><tbody>${rows}</tbody></table></div><p class="matrix-note">Se excluyen respuestas faltantes en cada par. En selección múltiple, cada opción se evalúa como elegida/no elegida. Si una persona nombra varios pilotos como GOAT, su voto se divide entre ellos antes de calcular φ.</p>${highlights}`;
   target.querySelectorAll("[data-matrix-row]").forEach((button) => button.addEventListener("click", () => {
     firstSelect.value = button.dataset.matrixRow;
     secondSelect.value = button.dataset.matrixColumn;

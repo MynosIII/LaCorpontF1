@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { categoricalAssociation, correlationMatrix, extractDriverVotes, surveyRecords, weightedRanking } from "../src/survey.js";
+import { categoricalAssociation, correlationMatrix, extractDriverVotes, optionCorrelationMatrix, strongestOptionCorrelations, surveyRecords, surveyVariables, weightedRanking } from "../src/survey.js";
 
 const drivers = [
   "Juan Manuel Fangio", "Michael Schumacher", "Ralf Schumacher", "Lewis Hamilton",
@@ -52,11 +52,33 @@ test("une las ramas española e inglesa y conserva una sola fila por persona", (
   assert.equal(records.length, 2);
   assert.deepEqual(records[0].votes, ["Lando Norris"]);
   assert.deepEqual(records[1].votes, ["Lewis Hamilton", "Max Verstappen"]);
+  assert.equal(records[1].values.goat, "Lewis Hamilton + Max Verstappen");
   assert.equal(records[0].values.gender, "Femenino");
   assert.equal(records[1].values.gender, "Masculino");
   assert.equal(records[1].values.age, "25 a 34");
   assert.equal(records[1].values.years, "2 a 4 años");
   assert.equal(records[1].values.statistics, "Casi nada");
+});
+
+test("desglosa la matriz por opciones e incluye al mejor piloto", () => {
+  const baseRecords = [
+    { votes: ["Ayrton Senna"], values: { country: "Argentina", media: "YouTube / Twitch + TV / F1 TV" } },
+    { votes: ["Ayrton Senna"], values: { country: "Argentina", media: "YouTube / Twitch" } },
+    { votes: ["Lewis Hamilton", "Max Verstappen"], values: { country: "México", media: "TV / F1 TV" } },
+    { votes: ["Lewis Hamilton"], values: { country: "México", media: "TV / F1 TV" } }
+  ];
+  const records = Array.from({ length: 3 }, () => baseRecords).flat();
+  const variables = surveyVariables.filter(({ key: variableKey }) => ["goat", "country", "media"].includes(variableKey));
+  const detail = optionCorrelationMatrix(records, variables);
+  assert.ok(detail.groups.some((group) => group.key === "goat" && group.categories.includes("Ayrton Senna")));
+  assert.ok(detail.groups.some((group) => group.key === "media" && group.categories.includes("YouTube / Twitch")));
+  const argentinaIndex = detail.options.findIndex((option) => option.variableKey === "country" && option.label === "Argentina");
+  const youtubeIndex = detail.options.findIndex((option) => option.variableKey === "media" && option.label === "YouTube / Twitch");
+  assert.equal(detail.matrix[argentinaIndex][argentinaIndex].value, null);
+  assert.ok(detail.matrix[argentinaIndex][youtubeIndex].value > 0);
+  const strongest = strongestOptionCorrelations(records, variables, 10);
+  assert.ok(strongest.length > 0);
+  assert.ok(strongest.every((pair) => pair.rowOption.variableKey !== pair.columnOption.variableKey));
 });
 
 test("divide un voto en partes iguales sin inflar el total", () => {
